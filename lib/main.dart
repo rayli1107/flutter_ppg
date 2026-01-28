@@ -1,13 +1,26 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
-
 import 'package:flutter/material.dart';
+
 import 'package:camera/camera.dart';
+import 'package:flutter_ppg/models/brightness_detection_model.dart';
 import 'package:provider/provider.dart';
 
 import 'package:flutter_ppg/models/test_data.dart';
-import 'package:flutter_ppg/ppg_chart.dart';
+import 'package:flutter_ppg/models/ppg_model.dart';
+import 'package:flutter_ppg/screens/ppg_screen.dart';
+
+Future<CameraController> getCameraController() async {
+    return availableCameras().then((cameraDescriptions) {
+        final cameraController = CameraController(
+            cameraDescriptions.first,
+            ResolutionPreset.low,
+            fps: 30);
+        return cameraController.initialize().then(
+            (_) {return cameraController;});
+    });
+}
 
 Future<void> main() async {
     var testData = TestData();
@@ -22,24 +35,17 @@ Future<void> main() async {
     // Ensure that plugin services are initialized so that `availableCameras()`
     // can be called before `runApp()`
     WidgetsFlutterBinding.ensureInitialized();
-
-    // Obtain a list of the available cameras on the device.
-    final cameras = await availableCameras();
-
-    // Get a specific camera from the list of available cameras.
-    final firstCamera = cameras.first;
+    var cameraDescriptions = await availableCameras();
 
     runApp(
-        ChangeNotifierProvider(
-            create: (context) => testData,
-            child: MaterialApp(
+        MaterialApp(
             theme: ThemeData.dark(),
-            home: PPGChart(windowSize: 10),
-            /*                home: TakePictureScreen(
-                        // Pass the appropriate camera to the TakePictureScreen widget.
-                        camera: firstCamera,
-                    ),*/
-            ),
+            home: PPGScreen(
+                cameraDescription: cameraDescriptions.first,
+                brightnessDetectionConfig: BrightnessDetectionConfig(),
+                ppgModelConfig: PPGModelConfig(),
+                windowTimeframeSeconds: 10,
+            )
         ),
     );
 }
@@ -57,6 +63,7 @@ class TakePictureScreen extends StatefulWidget {
 class TakePictureScreenState extends State<TakePictureScreen> {
   late CameraController _controller;
   late Future<void> _initializeControllerFuture;
+
 
   @override
   void initState() {
