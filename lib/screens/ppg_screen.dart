@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:math';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import 'package:camera/camera.dart';
@@ -45,6 +47,56 @@ class _PPGScreenInitializingWidget extends StatelessWidget {
     }
 }
 
+class _PPGScreenCoveringWidget extends StatelessWidget {
+    const _PPGScreenCoveringWidget({
+        required this.height,
+        required this.brightnessDetectionModel,
+    });
+
+    final double height;
+    final BrightnessDetectionModel brightnessDetectionModel;
+
+    @override
+    Widget build(BuildContext context) {
+        var x = brightnessDetectionModel.currentDetectionResult!.minValueX;
+        var y = 1 - brightnessDetectionModel.currentDetectionResult!.minValueY;
+        return AspectRatio(
+            aspectRatio: 1 / brightnessDetectionModel.currentDetectionResult!.imageAspectRatio,
+            child: FractionalTranslation(
+                translation: Offset(x, y),
+                child: Stack(
+                    alignment: AlignmentGeometry.topLeft,
+                    children: [
+                        Container(
+                            width: 50,
+                            height: 50,
+                            decoration: BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle
+                            ),
+                        )
+                    ],
+                )
+            ),
+        );
+    }
+}
+/*        return Positioned(
+            left: 0,
+            bottom: 0,
+            width: 10,
+            height: 10,
+            child: Container(
+                decoration: BoxDecoration(
+                    color: Colors.blue,
+                    shape: BoxShape.circle,
+                ),
+            ),
+        );
+    }
+}
+*/
+
 class _PPGScreenReadyWidget extends StatelessWidget {
     const _PPGScreenReadyWidget({
         required this.cameraController,
@@ -54,26 +106,43 @@ class _PPGScreenReadyWidget extends StatelessWidget {
     final CameraController cameraController;
     final BrightnessDetectionModel brightnessDetectionModel;
 
+    double _getCoverProgress() {
+        if (brightnessDetectionModel.currentDetectionResult == null) {
+            return 0;
+        }
+
+        var result = brightnessDetectionModel.currentDetectionResult!;
+        double start = result.config.deviationThreshold;
+        double end = 0.15;
+        double value = result.deviation;
+        double progress = (value - start) / (end - start);
+        return 1 - max(0, min(1, progress));
+    }
+
     @override
     Widget build(BuildContext context) {
-        return Column(
-            children: [ 
-                Container(
-                    height: 400,
-                    child: CameraPreview(cameraController),
-                ),
-                Text('Cover the camera lens with your finger'),
-                Text('Brightness: ${brightnessDetectionModel.currentBrightness}'),
-                Text('Deviation: ${brightnessDetectionModel.currentDeviation}'),
-/*
-                Consumer<PPGModel>(
-                    builder: (context, model, child) {
-                        var status = 'Brightness: ${model.currentBrightness} '
-                                        'Deviation: ${model.currentDeviation}';
-                        return Text(status);
-                    })
-                    */
-            ]);
+        return Center(
+            child: Column(
+                children: [
+                    Container(
+                        height: 400,
+                        child: Stack(
+                            alignment: AlignmentGeometry.center,
+                            children: [
+                                CameraPreview(cameraController),
+                                if (brightnessDetectionModel.currentDetectionResult != null) ...[
+                                    CircularProgressIndicator(
+                                        color: Colors.green,
+                                        value: _getCoverProgress(),
+                                    ),
+                                ],
+                            ]
+                        ),
+                    ),
+                    Text('將手指覆蓋在手機鏡頭上'),
+                ],
+            )
+        );
     }
 }
 
@@ -86,14 +155,16 @@ class _PPGScreenBufferingWidget extends StatelessWidget {
 
     @override
     Widget build(BuildContext context) {
-        return Column(
-            children: [ 
-                Container(
-                    height: 400,
-                    child: CameraPreview(cameraController),
-                ),
-                Text('Buffering samples'),
-            ]
+        return Center(
+            child: Column(
+                children: [ 
+                    Container(
+                        height: 400,
+                        child: CameraPreview(cameraController),
+                    ),
+                    Text('讀取數據中...'),
+                ]
+            )
         );
     }
 }
@@ -169,14 +240,14 @@ class _PPGScreenState extends State<PPGScreen> {
     void _onCameraImage(CameraImage image) {
         _cameraController.setFlashMode(FlashMode.torch);
 
-        var (isCovered, value) =
+        var result =
             _brightnessDetectionModel.processFrame(image);
 
         switch (_status) {
             case _PPGScreenStatus.ready:
-                if (isCovered) {
+                if (result != null && result.isCovered) {
                     _startTime = DateTime.now();
-                    _ppgModel.processValue(0, value);
+                    _ppgModel.processValue(0, result.brightness);
                     setState(() {_status = _PPGScreenStatus.buffering;});
                 }
                 else {
@@ -185,11 +256,11 @@ class _PPGScreenState extends State<PPGScreen> {
                 break;
 
             case _PPGScreenStatus.buffering:
-                if (isCovered) {
+                if (result != null && result.isCovered) {
                     var timeDiff = DateTime.now().difference(_startTime);
                     double timeSeconds = timeDiff.inMilliseconds / 1000;
-                    var entry = _ppgModel.processValue(timeSeconds, value);
-                    if (entry != null && !_ppgModel.isBuffering) {
+                    var entry = _ppgModel.processValue(timeSeconds, result.brightness);
+                    if (entry != null && _ppgModel.heartRate > 0) {
                         _graphData.addPoint(timeSeconds, entry.deviation);
                         setState(() {_status = _PPGScreenStatus.sampling;});
                     }
@@ -200,10 +271,10 @@ class _PPGScreenState extends State<PPGScreen> {
                 break;
 
             case _PPGScreenStatus.sampling:
-                if (isCovered) {
+                if (result != null && result.isCovered) {
                     var timeDiff = DateTime.now().difference(_startTime);
                     double timeSeconds = timeDiff.inMilliseconds / 1000;
-                    var entry = _ppgModel.processValue(timeSeconds, value);
+                    var entry = _ppgModel.processValue(timeSeconds, result.brightness);
                     if (entry != null) {
                         if (_graphData.addPoint(timeSeconds, entry.deviation)) {
                             setState(() {});
