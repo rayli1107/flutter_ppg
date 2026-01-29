@@ -1,14 +1,22 @@
 import 'dart:math';
+import 'package:flutter/material.dart';
 
 import 'package:camera/camera.dart';
 
 class BrightnessDetectionConfig {
     final double brightnessThreshold;
-    final double deviationThreshold;
+    final double deviationRangeMin;
+    final double deviationRangeMax;
+
+    double deviationThreshold;
+    bool toggleFlashlight;
 
     BrightnessDetectionConfig({
         this.brightnessThreshold = 0.5,
-        this.deviationThreshold = 0.04,
+        this.deviationRangeMin = 0.04,
+        this.deviationRangeMax = 0.08,
+        this.deviationThreshold = 0.06,
+        this.toggleFlashlight = false,
     });
 }
 
@@ -34,22 +42,27 @@ class BrightnessDetectionResult {
         deviation < config.deviationThreshold;
 }
 
-class BrightnessDetectionModel {
-    BrightnessDetectionModel(this._config);
+class BrightnessDetectionModel extends ChangeNotifier {
+    BrightnessDetectionModel(this.config);
 
-    final BrightnessDetectionConfig _config;
+    BrightnessDetectionConfig config;
     BrightnessDetectionResult? currentDetectionResult;
 
     BrightnessDetectionResult? processFrame(CameraImage image) {
+        bool updated = false;
         switch (image.format.group) {
             case ImageFormatGroup.yuv420:
                 currentDetectionResult = _getBrightnessYUV420(image);
+                updated = true;
                 break;
             case ImageFormatGroup.bgra8888:
                 break;
             default: 
                 break;
 
+        }
+        if (updated) {
+            notifyListeners();
         }
         return currentDetectionResult;
     }
@@ -85,7 +98,7 @@ class BrightnessDetectionModel {
         double brightness = sum / count;
         double deviation = sqrt(sumSquared / count - brightness * brightness);
         return BrightnessDetectionResult(
-            config: _config,
+            config: config,
             brightness: brightness,
             deviation: deviation,
             minValueX: minValueX / image.width,

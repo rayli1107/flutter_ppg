@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:math';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import 'package:camera/camera.dart';
@@ -10,6 +9,8 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_ppg/models/brightness_detection_model.dart';
 import 'package:flutter_ppg/models/graph_data.dart';
 import 'package:flutter_ppg/models/ppg_model.dart';
+import 'package:flutter_ppg/screens/ppg/brightness_detection_config_widget.dart';
+import 'package:flutter_ppg/screens/ppg/camera_preview_widget.dart';
 
 enum _PPGScreenStatus {
     initializing,
@@ -47,99 +48,31 @@ class _PPGScreenInitializingWidget extends StatelessWidget {
     }
 }
 
-class _PPGScreenCoveringWidget extends StatelessWidget {
-    const _PPGScreenCoveringWidget({
-        required this.height,
-        required this.brightnessDetectionModel,
-    });
-
-    final double height;
-    final BrightnessDetectionModel brightnessDetectionModel;
-
-    @override
-    Widget build(BuildContext context) {
-        var x = brightnessDetectionModel.currentDetectionResult!.minValueX;
-        var y = 1 - brightnessDetectionModel.currentDetectionResult!.minValueY;
-        return AspectRatio(
-            aspectRatio: 1 / brightnessDetectionModel.currentDetectionResult!.imageAspectRatio,
-            child: FractionalTranslation(
-                translation: Offset(x, y),
-                child: Stack(
-                    alignment: AlignmentGeometry.topLeft,
-                    children: [
-                        Container(
-                            width: 50,
-                            height: 50,
-                            decoration: BoxDecoration(
-                                color: Colors.red,
-                                shape: BoxShape.circle
-                            ),
-                        )
-                    ],
-                )
-            ),
-        );
-    }
-}
-/*        return Positioned(
-            left: 0,
-            bottom: 0,
-            width: 10,
-            height: 10,
-            child: Container(
-                decoration: BoxDecoration(
-                    color: Colors.blue,
-                    shape: BoxShape.circle,
-                ),
-            ),
-        );
-    }
-}
-*/
-
 class _PPGScreenReadyWidget extends StatelessWidget {
     const _PPGScreenReadyWidget({
         required this.cameraController,
         required this.brightnessDetectionModel,
+        required this.onToggleFlashlight,
     });
 
     final CameraController cameraController;
     final BrightnessDetectionModel brightnessDetectionModel;
-
-    double _getCoverProgress() {
-        if (brightnessDetectionModel.currentDetectionResult == null) {
-            return 0;
-        }
-
-        var result = brightnessDetectionModel.currentDetectionResult!;
-        double start = result.config.deviationThreshold;
-        double end = 0.15;
-        double value = result.deviation;
-        double progress = (value - start) / (end - start);
-        return 1 - max(0, min(1, progress));
-    }
+    final Function(bool) onToggleFlashlight;
 
     @override
     Widget build(BuildContext context) {
         return Center(
             child: Column(
+                spacing: 10,
                 children: [
-                    Container(
-                        height: 400,
-                        child: Stack(
-                            alignment: AlignmentGeometry.center,
-                            children: [
-                                CameraPreview(cameraController),
-                                if (brightnessDetectionModel.currentDetectionResult != null) ...[
-                                    CircularProgressIndicator(
-                                        color: Colors.green,
-                                        value: _getCoverProgress(),
-                                    ),
-                                ],
-                            ]
-                        ),
-                    ),
+                    CameraPreviewWidget(
+                        cameraController: cameraController,
+                        brightnessDetectionModel: brightnessDetectionModel),
                     Text('將手指覆蓋在手機鏡頭上'),
+                    BrightnessDetectionConfigWidget(
+                        config: brightnessDetectionModel.config,
+                        onToggleFlashlight: onToggleFlashlight,
+                    ),
                 ],
             )
         );
@@ -149,19 +82,20 @@ class _PPGScreenReadyWidget extends StatelessWidget {
 class _PPGScreenBufferingWidget extends StatelessWidget {
     const _PPGScreenBufferingWidget({
         required this.cameraController,
+        required this.brightnessDetectionModel,
     });
 
     final CameraController cameraController;
-
+    final BrightnessDetectionModel brightnessDetectionModel;
     @override
     Widget build(BuildContext context) {
         return Center(
             child: Column(
+                spacing: 10,
                 children: [ 
-                    Container(
-                        height: 400,
-                        child: CameraPreview(cameraController),
-                    ),
+                    CameraPreviewWidget(
+                        cameraController: cameraController,
+                        brightnessDetectionModel: brightnessDetectionModel),
                     Text('讀取數據中...'),
                 ]
             )
@@ -182,6 +116,7 @@ class _PPGScreenSamplingWidget extends StatelessWidget {
     Widget build(BuildContext context) {
         return Center(
             child: Column(
+                spacing: 10,
                 children: [ 
                     SizedBox(
                         width: 400,
@@ -237,9 +172,14 @@ class _PPGScreenState extends State<PPGScreen> {
         _graphData.reset();
     }
 
-    void _onCameraImage(CameraImage image) {
-        _cameraController.setFlashMode(FlashMode.torch);
+    void _toggleFlashlight(bool toggle) {
+        widget.brightnessDetectionConfig.toggleFlashlight = toggle;
+        _cameraController.setFlashMode(
+            toggle ? FlashMode.torch : FlashMode.off);
+        setState(() {});
+    }
 
+    void _onCameraImage(CameraImage image) {
         var result =
             _brightnessDetectionModel.processFrame(image);
 
@@ -329,9 +269,12 @@ class _PPGScreenState extends State<PPGScreen> {
                 _PPGScreenStatus.initializing => _PPGScreenInitializingWidget(),
                 _PPGScreenStatus.ready => _PPGScreenReadyWidget(
                     cameraController: _cameraController,
-                    brightnessDetectionModel: _brightnessDetectionModel),
+                    brightnessDetectionModel: _brightnessDetectionModel,
+                    onToggleFlashlight: _toggleFlashlight,
+                ),
                 _PPGScreenStatus.buffering => _PPGScreenBufferingWidget(
-                    cameraController: _cameraController),
+                    cameraController: _cameraController,
+                    brightnessDetectionModel: _brightnessDetectionModel),
                 _PPGScreenStatus.sampling => _PPGScreenSamplingWidget(
                     ppgModel: _ppgModel,
                     graphData: _graphData)
