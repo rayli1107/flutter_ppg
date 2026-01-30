@@ -1,193 +1,142 @@
 import 'dart:async';
-import 'dart:io';
-import 'dart:math';
 import 'package:flutter/material.dart';
 
 import 'package:camera/camera.dart';
+import 'package:flutter_ppg/home_screen.dart';
 import 'package:flutter_ppg/models/brightness_detection_model.dart';
-import 'package:provider/provider.dart';
 
-import 'package:flutter_ppg/models/test_data.dart';
 import 'package:flutter_ppg/models/ppg_model.dart';
-import 'package:flutter_ppg/screens/ppg_screen.dart';
+import 'package:flutter_ppg/screens/ppg/ppg_screen.dart';
 
-Future<CameraController> getCameraController() async {
-    return availableCameras().then((cameraDescriptions) {
-        final cameraController = CameraController(
-            cameraDescriptions.first,
-            ResolutionPreset.low,
-            fps: 30);
-        return cameraController.initialize().then(
-            (_) {return cameraController;});
-    });
+
+enum _TabType {
+    Home,
+    HeartRate,
+    Exercise,
+    Account
 }
 
 Future<void> main() async {
-    var testData = TestData();
-    Timer.periodic(
-      const Duration(milliseconds: 33),
-      (timer) {
-        var x = timer.tick / 30;
-        testData.addPoint(x, sin(x));
-      },
-    );
-
     // Ensure that plugin services are initialized so that `availableCameras()`
     // can be called before `runApp()`
     WidgetsFlutterBinding.ensureInitialized();
-    var cameraDescriptions = await availableCameras();
+    CameraDescription? cameraDescription = null;
+    try {
+        cameraDescription = (await availableCameras()).first;
+    } catch (e) {
+        print(e);
+    }
 
     runApp(
         MaterialApp(
             theme: ThemeData.dark(),
-            home: PPGScreen(
-                cameraDescription: cameraDescriptions.first,
+            home: MainAppScreen(
+                cameraDescription: cameraDescription!,
                 brightnessDetectionConfig: BrightnessDetectionConfig(),
                 ppgModelConfig: PPGModelConfig(),
-                windowTimeframeSeconds: 10,
             )
         ),
     );
 }
 
-// A screen that allows users to take a picture using a given camera.
-class TakePictureScreen extends StatefulWidget {
-  const TakePictureScreen({super.key, required this.camera});
+class MainAppScreen extends StatefulWidget {
+    const MainAppScreen({
+        super.key,
+        required this.cameraDescription,
+        required this.brightnessDetectionConfig,
+        required this.ppgModelConfig,
+    });
 
-  final CameraDescription camera;
+    final CameraDescription? cameraDescription;
+    final BrightnessDetectionConfig brightnessDetectionConfig;
+    final PPGModelConfig ppgModelConfig;
 
-  @override
-  TakePictureScreenState createState() => TakePictureScreenState();
+    @override
+    State<MainAppScreen> createState() => _MainAppScreenState();
 }
 
-class TakePictureScreenState extends State<TakePictureScreen> {
-  late CameraController _controller;
-  late Future<void> _initializeControllerFuture;
+class _MainAppScreenState extends State<MainAppScreen> {
 
+    int _tabIndex = _TabType.Home.index;
 
-  @override
-  void initState() {
-    super.initState();
-    // To display the current output from the Camera,
-    // create a CameraController.
-    _controller = CameraController(
-      // Get a specific camera from the list of available cameras.
-      widget.camera,
-      // Define the resolution to use.
-      ResolutionPreset.low,
-      fps: 60,
-    );
+    void _onDestinationSelected(int tabIndex) {
+        setState(() {_tabIndex = tabIndex; });
+    }
 
-    var timeStart = DateTime.now();
-    var sampleCount = 0;
-    // Next, initialize the controller. This returns a Future.
-    _initializeControllerFuture = _controller.initialize();
-    _initializeControllerFuture.then(
-      (_) => {
-        _controller.startImageStream((CameraImage image) {
-          print(
-            'Image Format: ${image.format.group} planes ${image.planes.length} '
-            'width ${image.width} height ${image.height}',
-          );
+    NavigationBar _buildNavgationBar() {
+        List<Widget> destinations = [];
+        _TabType.values.forEach((tab) {
+            switch (tab) {
+                case _TabType.Home:
+                    destinations.add(
+                        NavigationDestination(
+                            icon: Icon(Icons.home),
+                            label: "首頁",
+                        )
+                    );
+                    break;
 
-          var plane = image.planes[0];
-          var totalBrightness = 0;
-          for (var y = 0; y < image.height; ++y) {
-            for (var x = 0; x < image.width; ++x) {
-              var index = y * plane.bytesPerRow + x;
-              totalBrightness += plane.bytes[index];
+                case _TabType.HeartRate:
+                    destinations.add(
+                        NavigationDestination(
+                            icon: Icon(Icons.favorite),
+                            label: "心跳",
+                        )
+                    );
+                    break;
+
+                case _TabType.Exercise:
+                    destinations.add(
+                        NavigationDestination(
+                            icon: Icon(Icons.self_improvement),
+                            label: "呼吸",
+                        )
+                    );
+                    break;
+
+                case _TabType.Account:
+                    destinations.add(
+                        NavigationDestination(
+                            icon: Icon(Icons.person),
+                            label: "個人",
+                        )
+                    );
+                    break;
             }
-          }
-          var brightness = totalBrightness / (image.width * image.height);
-          ++sampleCount;
-          if (sampleCount % 10 == 0) {
-            var timeEnd = DateTime.now();
-            var timeDiff = timeEnd.difference(timeStart);
-            print(
-              'brightness=$brightness, rate=${sampleCount / timeDiff.inSeconds}',
-            );
-          }
-        }),
-      },
-    );
-  }
+        });
 
-  @override
-  void dispose() {
-    // Dispose of the controller when the widget is disposed.
-    _controller.stopImageStream();
-    _controller.dispose();
-    super.dispose();
-  }
+        return NavigationBar(
+            onDestinationSelected: _onDestinationSelected,
+            indicatorColor: Colors.amber,
+            selectedIndex: _tabIndex,
+            destinations: destinations);
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Take a picture')),
-      // You must wait until the controller is initialized before displaying the
-      // camera preview. Use a FutureBuilder to display a loading spinner until the
-      // controller has finished initializing.
-      body: FutureBuilder<void>(
-        future: _initializeControllerFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.done) {
-            // If the Future is complete, display the preview.
-            return CameraPreview(_controller);
-          } else {
-            // Otherwise, display a loading indicator.
-            return const Center(child: CircularProgressIndicator());
-          }
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        // Provide an onPressed callback.
-        onPressed: () async {
-          // Take the Picture in a try / catch block. If anything goes wrong,
-          // catch the error.
-          try {
-            // Ensure that the camera is initialized.
-            await _initializeControllerFuture;
 
-            // Attempt to take a picture and get the file `image`
-            // where it was saved.
-            final image = await _controller.takePicture();
-
-            if (!context.mounted) return;
-
-            // If the picture was taken, display it on a new screen.
-            await Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (context) => DisplayPictureScreen(
-                  // Pass the automatically generated path to
-                  // the DisplayPictureScreen widget.
-                  imagePath: image.path,
-                ),
-              ),
-            );
-          } catch (e) {
-            // If an error occurs, log the error to the console.
-            print(e);
-          }
-        },
-        child: const Icon(Icons.camera_alt),
-      ),
-    );
-  }
-}
-
-// A widget that displays the picture taken by the user.
-class DisplayPictureScreen extends StatelessWidget {
-  final String imagePath;
-
-  const DisplayPictureScreen({super.key, required this.imagePath});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Display the Picture')),
-      // The image is stored as a file on the device. Use the `Image.file`
-      // constructor with the given path to display the image.
-      body: Image.file(File(imagePath)),
-    );
-  }
+    @override
+    Widget build(BuildContext context) {
+        return SafeArea(
+            child: Scaffold(
+                bottomNavigationBar: _buildNavgationBar(),
+                body: switch (_TabType.values[_tabIndex]) {
+                    _TabType.Home => HomeScreen(),
+                    _TabType.HeartRate => PPGScreen(
+                        cameraDescription: widget.cameraDescription,
+                        brightnessDetectionConfig: widget.brightnessDetectionConfig,
+                        ppgModelConfig: widget.ppgModelConfig,
+                        windowTimeframeSeconds: 10),
+                    _TabType.Exercise => PPGScreen(
+                        cameraDescription: widget.cameraDescription,
+                        brightnessDetectionConfig: widget.brightnessDetectionConfig,
+                        ppgModelConfig: widget.ppgModelConfig,
+                        windowTimeframeSeconds: 10),
+                    _TabType.Account => PPGScreen(
+                        cameraDescription: widget.cameraDescription,
+                        brightnessDetectionConfig: widget.brightnessDetectionConfig,
+                        ppgModelConfig: widget.ppgModelConfig,
+                        windowTimeframeSeconds: 10)
+                }
+            )
+        );
+    }
 }

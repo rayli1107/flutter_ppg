@@ -17,6 +17,7 @@ enum _PPGScreenStatus {
     ready,
     buffering,
     sampling,
+    error,
 }
 
 class PPGScreen extends StatefulWidget {
@@ -28,7 +29,7 @@ class PPGScreen extends StatefulWidget {
         this.windowTimeframeSeconds = 10,
     });
 
-    final CameraDescription cameraDescription;
+    final CameraDescription? cameraDescription;
     final BrightnessDetectionConfig brightnessDetectionConfig;
     final PPGModelConfig ppgModelConfig;
     final double windowTimeframeSeconds;
@@ -157,6 +158,22 @@ class _PPGScreenSamplingWidget extends StatelessWidget {
     }
 }
 
+class _PPGScreenErrorWidget extends StatelessWidget {
+    const _PPGScreenErrorWidget({required this.error});
+
+    final String error;
+
+    @override
+    Widget build(BuildContext context) {
+        return Text(
+            error,
+            style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.red));
+    }
+}
+
 
 class _PPGScreenState extends State<PPGScreen> {
     late CameraController _cameraController;
@@ -166,7 +183,7 @@ class _PPGScreenState extends State<PPGScreen> {
 
     _PPGScreenStatus _status = _PPGScreenStatus.initializing;
     late DateTime _startTime;
-    
+    String _error = "";
     void _reset() {
         _ppgModel.reset();
         _graphData.reset();
@@ -236,8 +253,16 @@ class _PPGScreenState extends State<PPGScreen> {
         super.initState();
         _status = _PPGScreenStatus.ready;
 
+        if (widget.cameraDescription == null) {
+            setState(() {
+                _error = "無法找到相機";
+                _status = _PPGScreenStatus.error;
+            });
+            return;
+        }
+
         _cameraController = CameraController(
-            widget.cameraDescription,
+            widget.cameraDescription!,
             ResolutionPreset.low,
             fps: 30);
 
@@ -255,9 +280,12 @@ class _PPGScreenState extends State<PPGScreen> {
 
     @override
     void dispose() {
-        _cameraController.setFlashMode(FlashMode.off);
-        _cameraController.stopImageStream();
-        _cameraController.dispose();
+        _cameraController.setFlashMode(FlashMode.off).then((_) {
+            return _cameraController.stopImageStream();
+        }).then((_) {
+            _cameraController.dispose();
+        });
+
         super.dispose();
     }
 
@@ -277,7 +305,8 @@ class _PPGScreenState extends State<PPGScreen> {
                     brightnessDetectionModel: _brightnessDetectionModel),
                 _PPGScreenStatus.sampling => _PPGScreenSamplingWidget(
                     ppgModel: _ppgModel,
-                    graphData: _graphData)
+                    graphData: _graphData),
+                _PPGScreenStatus.error => _PPGScreenErrorWidget(error: _error),
             });
     }
 }
