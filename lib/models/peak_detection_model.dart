@@ -1,29 +1,33 @@
 import 'dart:math';
 
-class PPGModelEntry {
-    final double timeSeconds;
-    final double value;
+import 'package:flutter_ppg/models/ppg_session.dart';
+
+class PeakDetectionEntry {
+    final PPGSessionEntry _entry;
     late double modifiedValue;
     late double deviation;
     late double rollingAverage;
     late int signal;
 
-    PPGModelEntry({required this.timeSeconds, required this.value}) {
-        modifiedValue = value;
-        rollingAverage = value;
-        deviation = 0;
+    double get timeSeconds => _entry.timeSeconds;
+    double get value => _entry.value;
+
+    PeakDetectionEntry({required PPGSessionEntry entry}) :
+        _entry = entry,
+        modifiedValue = entry.value,
+        rollingAverage = entry.value,
+        deviation = 0,
         signal = 0;
-    }
 }
 
-class PPGModelConfig {
+class PeakDetectionConfig {
     final int skipSamples;
     final int bufferSamples;
     final double bufferThreshold;
     final double influence;
     final double peakBufferTime;
 
-    PPGModelConfig({
+    PeakDetectionConfig({
         this.skipSamples = 10,
         this.bufferSamples = 30,
         this.bufferThreshold = 0.5,
@@ -32,18 +36,26 @@ class PPGModelConfig {
     });
 }
 
-class PPGModel {
-    PPGModel({required this.config}) {
+class PeakDetectionModel {
+    PeakDetectionModel({    
+        required PeakDetectionConfig config,
+        required PPGSession session
+    }) : _config = config, _session = session {
         reset();
     }
 
-    final PPGModelConfig config;
+    final PeakDetectionConfig _config;
+    final PPGSession _session;
+    final List<PeakDetectionEntry> _entries = [];
+
+    PeakDetectionConfig get config => _config;
+    PPGSession get session => _session;
+
     double _currentSum = 0;
     double _currentSumSquared = 0;
     double _currentDeviation = 0;
     int _lastSignal = 0;
     int _skipped = 0;
-    final List<PPGModelEntry> _entries = [];
     final List<double> _peakTimestamps = [];
     double _minHeartRate = double.maxFinite;
     double _maxHeartRate = double.minPositive;
@@ -59,6 +71,7 @@ class PPGModel {
     void reset() {
         _skipped = 0;
         _entries.clear();
+        _session.clear();
         _peakTimestamps.clear();
 
         _currentSum = 0;
@@ -77,7 +90,7 @@ class PPGModel {
         _currentDeviation = 0;
 
         for (int i = 0; i < _entries.length; ++i) {
-            double value = _entries[i].modifiedValue;
+            double value = _entries[i].value;
             _currentSum += value;
             _currentSumSquared += value * value;
         }
@@ -85,10 +98,10 @@ class PPGModel {
         double mean = _currentSum / _entries.length;
 
         for (int i = 0; i < _entries.length; ++i) {
-            double diff = _entries[i].modifiedValue - mean;
+            double diff = _entries[i].value - mean;
             _currentDeviation += diff * diff;
         }
-        _currentDeviation = sqrt(_currentDeviation / _entries.length);
+        _currentDeviation = sqrt(_currentDeviation / _session.entries.length);
     }
 
     bool _updateHeartRate() {
@@ -179,13 +192,14 @@ class PPGModel {
         return false;
     }
 
-    PPGModelEntry? processValue(double timeSeconds, double value) {
+    PeakDetectionEntry? processValue(double timeSeconds, double value) {
         if (_skipped < config.skipSamples) {
             ++_skipped;
             return null;
         }
 
-        _entries.add(PPGModelEntry(timeSeconds: timeSeconds, value: value));
+        PPGSessionEntry sessionEntry = _session.addEntry(timeSeconds, value);
+        _entries.add(PeakDetectionEntry(entry: sessionEntry));
 
         if (_entries.length == config.bufferSamples) {
             _processInitialBuffer();

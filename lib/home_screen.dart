@@ -5,12 +5,23 @@ class HomeScreen extends StatelessWidget {
 
     @override
     Widget build(BuildContext context) {
-        return const Text(
-            'Home Screen',
-            style: TextStyle(
-                fontSize: 36,
-                fontWeight: FontWeight.bold,
+        return Column(
+          children: [
+            Text(
+                'Home Screen',
+                style: TextStyle(
+                    fontSize: 36,
+                    fontWeight: FontWeight.bold,
+                ),
             ),
+            Container(
+                width: 300,
+                height: 300,
+                child: CircularProgressIndicator(
+                    value: 0.5,
+                )
+            )
+          ],
         );
     }
 }

@@ -7,16 +7,13 @@ class BrightnessDetectionConfig {
     final double brightnessThreshold;
     final double deviationRangeMin;
     final double deviationRangeMax;
-
-    double deviationThreshold;
-    bool toggleFlashlight;
+    final double deviationDefaultThreshold;
 
     BrightnessDetectionConfig({
         this.brightnessThreshold = 0.5,
         this.deviationRangeMin = 0.04,
         this.deviationRangeMax = 0.08,
-        this.deviationThreshold = 0.06,
-        this.toggleFlashlight = false,
+        this.deviationDefaultThreshold = 0.05,
     });
 }
 
@@ -38,8 +35,7 @@ class BrightnessDetectionResult {
     final double imageAspectRatio;
 
     bool get isCovered =>
-        brightness < config.brightnessThreshold &&
-        deviation < config.deviationThreshold;
+        deviation < config.deviationDefaultThreshold;
 }
 
 class BrightnessDetectionModel extends ChangeNotifier {

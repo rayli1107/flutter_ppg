@@ -38,7 +38,7 @@ class CameraPreviewWidget extends StatelessWidget {
         }
 
         var result = brightnessDetectionModel.currentDetectionResult!;
-        double start = result.config.deviationThreshold;
+        double start = result.config.deviationDefaultThreshold;
         double end = 0.15;
         double value = result.deviation;
         double progress = (value - start) / (end - start);
