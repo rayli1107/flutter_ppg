@@ -9,7 +9,7 @@ class BrightnessDetectionConfig {
     final double deviationRangeMax;
     final double deviationDefaultThreshold;
 
-    BrightnessDetectionConfig({
+    const BrightnessDetectionConfig({
         this.brightnessThreshold = 0.5,
         this.deviationRangeMin = 0.04,
         this.deviationRangeMax = 0.08,

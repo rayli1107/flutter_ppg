@@ -4,8 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter_ppg/home_screen.dart';
 import 'package:flutter_ppg/models/brightness_detection_model.dart';
-
-import 'package:flutter_ppg/models/peak_detection_model.dart';
 import 'package:flutter_ppg/screens/ppg/ppg_screen.dart';
 
 
@@ -29,12 +27,10 @@ Future<void> main() async {
 
     runApp(
         MaterialApp(
-            theme: ThemeData.dark(),
+            theme: ThemeData.light(),
             home: MainAppScreen(
                 cameraDescription: cameraDescription,
-                brightnessDetectionConfig: BrightnessDetectionConfig(),
-                peakDetectionConfig: PeakDetectionConfig(),
-            )
+                brightnessDetectionConfig: BrightnessDetectionConfig())
         ),
     );
 }
@@ -44,8 +40,7 @@ class MainAppScreen extends StatefulWidget {
     const MainAppScreen({
         super.key,
         required this.cameraDescription,
-        required this.brightnessDetectionConfig,
-        required this.peakDetectionConfig,
+        required this.brightnessDetectionConfig
     });
 
     static const List<MainAppScreenTabType> tabs = [
@@ -56,7 +51,6 @@ class MainAppScreen extends StatefulWidget {
 
     final CameraDescription? cameraDescription;
     final BrightnessDetectionConfig brightnessDetectionConfig;
-    final PeakDetectionConfig peakDetectionConfig;
 
     @override
     State<MainAppScreen> createState() => _MainAppScreenState();
@@ -112,20 +106,11 @@ class _MainAppScreenState extends State<MainAppScreen> {
                 body: switch (MainAppScreen.tabs[_tabIndex]) {
                     MainAppScreenTabType.Home => HomeScreen(),
                     MainAppScreenTabType.HeartRate => PPGScreen(
-                        cameraDescription: widget.cameraDescription,
-                        brightnessDetectionConfig: widget.brightnessDetectionConfig,
-                        peakDetectionConfig: widget.peakDetectionConfig,
-                        windowTimeframeSeconds: 10),
+                        cameraDescription: widget.cameraDescription),
                     MainAppScreenTabType.Exercise => PPGScreen(
-                        cameraDescription: widget.cameraDescription,
-                        brightnessDetectionConfig: widget.brightnessDetectionConfig,
-                        peakDetectionConfig: widget.peakDetectionConfig,
-                        windowTimeframeSeconds: 10),
+                        cameraDescription: widget.cameraDescription),
                     MainAppScreenTabType.Account => PPGScreen(
-                        cameraDescription: widget.cameraDescription,
-                        brightnessDetectionConfig: widget.brightnessDetectionConfig,
-                        peakDetectionConfig: widget.peakDetectionConfig,
-                        windowTimeframeSeconds: 10)
+                        cameraDescription: widget.cameraDescription)
                 }
             )
         );
