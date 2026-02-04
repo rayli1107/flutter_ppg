@@ -10,10 +10,12 @@ import 'package:flutter_ppg/models/graph_data.dart';
 import 'package:flutter_ppg/models/ppg_session.dart';
 import 'package:flutter_ppg/screens/ppg/ppg_screen_ready_state_widget.dart';
 import 'package:flutter_ppg/screens/ppg/ppg_screen_sampling_state_widget.dart';
+import 'package:flutter_ppg/screens/ppg/ppg_screen_summary_state_widget.dart';
 import 'package:flutter_ppg/screens/ppg/ppg_settings.dart';
+import 'package:flutter_ppg/services/ppg_session_manager.dart';
 import 'package:flutter_ppg/utils/fft.dart';
 
-enum _PPGScreenStatus {
+enum _PPGScreenState {
     initializing,
     ready,
     sampling,
@@ -42,8 +44,8 @@ class PPGScreenConfig {
     final double updateIntervalSeconds;
 }
 
-class PPGScreen extends StatefulWidget {
-    const PPGScreen({
+class PPGScreenWidget extends StatefulWidget {
+    const PPGScreenWidget({
         super.key,
         required this.cameraDescription,
         this.brightnessDetectionConfig = const BrightnessDetectionConfig(),
@@ -55,7 +57,7 @@ class PPGScreen extends StatefulWidget {
     final PPGScreenConfig ppgScreenConfig;
 
     @override
-    State<PPGScreen> createState() => _PPGScreenState();
+    State<PPGScreenWidget> createState() => _PPGScreenWidgetState();
 }
 
 class _PPGScreenInitializingWidget extends StatelessWidget {
@@ -116,14 +118,15 @@ class HearteRateCalculateContext {
     double get fps => _fps;
 }
 
-class _PPGScreenState extends State<PPGScreen> {
+class _PPGScreenWidgetState extends State<PPGScreenWidget> {
     late CameraController _cameraController;
     late PPGSessionContext _sessionContext;
+    late PPGSession? _finalSession;
     late GraphData _graphData;
     late BrightnessDetectionModel _brightnessDetectionModel;
     late PPGScreenSettings _ppgScreenSettings;  
 
-    _PPGScreenStatus _status = _PPGScreenStatus.initializing;
+    _PPGScreenState _state = _PPGScreenState.initializing;
     String _error = "";
 
     void _reset() {
@@ -155,19 +158,19 @@ class _PPGScreenState extends State<PPGScreen> {
         var result =
             _brightnessDetectionModel.processFrame(image);
 
-        switch (_status) {
-            case _PPGScreenStatus.ready:
+        switch (_state) {
+            case _PPGScreenState.ready:
                 if (result != null && result.isCovered) {
                     _reset();
                     _processResult(0, result);
-                    setState(() {_status = _PPGScreenStatus.sampling;});
+                    setState(() {_state = _PPGScreenState.sampling;});
                 }
                 else {
                     setState(() {});
                 }
                 break;
 
-            case _PPGScreenStatus.sampling:
+            case _PPGScreenState.sampling:
                 if (result != null && result.isCovered) {
                     DateTime timeNow = DateTime.now();
                     var timeDiff = timeNow.difference(_sessionContext.startTime);
@@ -175,11 +178,18 @@ class _PPGScreenState extends State<PPGScreen> {
                     _processResult(timeSeconds, result);
 
                     if (timeSeconds >= _ppgScreenSettings.length) {
-                        setState(() {_status = _PPGScreenStatus.finalizingHeartRate;});
+                        setState(() {_state = _PPGScreenState.finalizingHeartRate;});
 
                         _prepareCalcaulteHeartRateFFT().then((heartRate) {
-                            _sessionContext.averageHeartRate = heartRate;
-                            setState(() {_status = _PPGScreenStatus.done;});
+                            _finalSession = PPGSession(
+                                timestamp: _sessionContext.startTime,
+                                data: _sessionContext.entries.map((e) => e.value).toList(),
+                                averageHeartRate: heartRate,
+                                maxHeartRate: _sessionContext.maxHeartRate,
+                                minHeartRate: _sessionContext.minHeartRate);
+
+                            PPGSessionManager.instance.addSession(_finalSession!).then(
+                                (_) { setState(() {_state = _PPGScreenState.done;}); });
                         });
                     } else {
                         timeDiff = timeNow.difference(_sessionContext.lastHeartRateUpdateTime);
@@ -187,12 +197,12 @@ class _PPGScreenState extends State<PPGScreen> {
                         if (timeSeconds > widget.ppgScreenConfig.updateIntervalSeconds &&
                             _sessionContext.entries.length >= widget.ppgScreenConfig.minUpdateFrames) {
                             _sessionContext.lastHeartRateUpdateTime = timeNow;
-                            setState(() { _status = _PPGScreenStatus.updatingHeartRate; });
+                            setState(() { _state = _PPGScreenState.updatingHeartRate; });
                             _prepareCalcaulteHeartRateFFT(
                                 maxFrames: widget.ppgScreenConfig.maxUpdateFrames).then((heartRate) {
-                                if (_status == _PPGScreenStatus.updatingHeartRate) {
+                                if (_state == _PPGScreenState.updatingHeartRate) {
                                     _sessionContext.currentHeartRate = heartRate;
-                                    setState(() {_status = _PPGScreenStatus.sampling;});
+                                    setState(() {_state = _PPGScreenState.sampling;});
                                 }
                             });
                         } else {
@@ -200,11 +210,11 @@ class _PPGScreenState extends State<PPGScreen> {
                         }
                     }
                 } else {
-                    setState(() {_status = _PPGScreenStatus.ready;});
+                    setState(() {_state = _PPGScreenState.ready;});
                 }
                 break;
 
-            case _PPGScreenStatus.updatingHeartRate:
+            case _PPGScreenState.updatingHeartRate:
                 if (result != null && result.isCovered) {
                     DateTime timeNow = DateTime.now();
                     var timeDiff = timeNow.difference(_sessionContext.startTime);
@@ -212,7 +222,7 @@ class _PPGScreenState extends State<PPGScreen> {
                     _processResult(timeSeconds, result);
                     setState(() {});
                 } else {
-                    setState(() {_status = _PPGScreenStatus.ready;});
+                    setState(() {_state = _PPGScreenState.ready;});
                 }
                 break;
             default:
@@ -227,12 +237,12 @@ class _PPGScreenState extends State<PPGScreen> {
         if (widget.cameraDescription == null) {
             setState(() {
                 _error = "無法找到相機";
-                _status = _PPGScreenStatus.error;
+                _state = _PPGScreenState.error;
             });
             return;
         }
 
-        _status = _PPGScreenStatus.ready;
+        _state = _PPGScreenState.ready;
 
         _ppgScreenSettings = PPGScreenSettings(
             onLengthUpdate: (_) {
@@ -258,7 +268,7 @@ class _PPGScreenState extends State<PPGScreen> {
             widget.brightnessDetectionConfig);
 
         _cameraController.initialize().then((_) {
-            setState(() {_status = _PPGScreenStatus.ready;});
+            setState(() {_state = _PPGScreenState.ready;});
             _cameraController.startImageStream(_onCameraImage);
         });
     }
@@ -288,19 +298,19 @@ class _PPGScreenState extends State<PPGScreen> {
             appBar: AppBar(
                 centerTitle: true,
                 title: const Text('心跳偵測')),
-            body: switch (_status) {
-                _PPGScreenStatus.initializing => _PPGScreenInitializingWidget(),
-                _PPGScreenStatus.ready => PPGScreenReadyStateWidget(
+            body: switch (_state) {
+                _PPGScreenState.initializing => _PPGScreenInitializingWidget(),
+                _PPGScreenState.ready => PPGScreenReadyStateWidget(
                     cameraController: _cameraController,
                     brightnessDetectionModel: _brightnessDetectionModel,
                     ppgScreenSettings: _ppgScreenSettings,
                 ),
-                _PPGScreenStatus.sampling => _buildSamplingStateWidget(),
-                _PPGScreenStatus.updatingHeartRate => _buildSamplingStateWidget(),
-                _PPGScreenStatus.finalizingHeartRate => _buildSamplingStateWidget(),
-                _PPGScreenStatus.error => _PPGScreenErrorWidget(error: _error),
-                _PPGScreenStatus.done => _PPGScreenDoneWidget(
-                    heartRate: _sessionContext.averageHeartRate ?? 0),
+                _PPGScreenState.sampling => _buildSamplingStateWidget(),
+                _PPGScreenState.updatingHeartRate => _buildSamplingStateWidget(),
+                _PPGScreenState.finalizingHeartRate => _buildSamplingStateWidget(),
+                _PPGScreenState.error => _PPGScreenErrorWidget(error: _error),
+                _PPGScreenState.done => PPGScreenSummaryStateWidget(
+                    session: _finalSession!),
             });
     }
 }

@@ -15,6 +15,21 @@ class PPGSessionEntry {
     double get value => _value;
 }
 
+class PPGSession {
+    final DateTime timestamp;
+    final List<double> data;
+    final double averageHeartRate;
+    final double maxHeartRate;
+    final double minHeartRate;
+
+    PPGSession({
+        required this.timestamp,
+        required this.data,
+        required this.averageHeartRate,
+        required this.maxHeartRate,
+        required this.minHeartRate}) {}    
+}
+
 class PPGSessionContext {
     final int skippingFrames;
     final List<PPGSessionEntry> _entries;
@@ -24,7 +39,7 @@ class PPGSessionContext {
     late double _minHeartRate;
     late double _maxHeartRate;
     double? averageHeartRate;
-    double? currentHeartRate;
+    double? _currentHeartRate;
     late int _skippedFrames; 
 
     PPGSessionContext({
@@ -67,7 +82,14 @@ class PPGSessionContext {
         _minHeartRate = double.maxFinite;
         _maxHeartRate = 0;
         averageHeartRate = null;
-        currentHeartRate = null;
+        _currentHeartRate = null;
         _skippedFrames = 0;
+    }
+    
+    double? get currentHeartRate => _currentHeartRate;
+    set currentHeartRate(double value) {
+        _currentHeartRate = value;
+        _minHeartRate = min(_minHeartRate, value);
+        _maxHeartRate = max(_maxHeartRate, value);
     }
 }

@@ -2,9 +2,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'package:camera/camera.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+
 import 'package:flutter_ppg/home_screen.dart';
 import 'package:flutter_ppg/models/brightness_detection_model.dart';
+import 'package:flutter_ppg/screens/account/account.dart';
 import 'package:flutter_ppg/screens/ppg/ppg_screen.dart';
+import 'package:flutter_ppg/services/ppg_session_manager.dart';
 
 
 enum MainAppScreenTabType {
@@ -18,6 +22,12 @@ Future<void> main() async {
     // Ensure that plugin services are initialized so that `availableCameras()`
     // can be called before `runApp()`
     WidgetsFlutterBinding.ensureInitialized();
+    await Hive.initFlutter();
+    PPGSessionManager.registerAdapters();
+
+    // Initialize SessionManager for PPG session storage
+    await PPGSessionManager.instance.initialize();
+
     CameraDescription? cameraDescription = null;
     try {
         cameraDescription = (await availableCameras()).first;
@@ -105,12 +115,11 @@ class _MainAppScreenState extends State<MainAppScreen> {
                 bottomNavigationBar: _buildNavgationBar(),
                 body: switch (MainAppScreen.tabs[_tabIndex]) {
                     MainAppScreenTabType.Home => HomeScreen(),
-                    MainAppScreenTabType.HeartRate => PPGScreen(
+                    MainAppScreenTabType.HeartRate => PPGScreenWidget(
                         cameraDescription: widget.cameraDescription),
-                    MainAppScreenTabType.Exercise => PPGScreen(
+                    MainAppScreenTabType.Exercise => PPGScreenWidget(
                         cameraDescription: widget.cameraDescription),
-                    MainAppScreenTabType.Account => PPGScreen(
-                        cameraDescription: widget.cameraDescription)
+                    MainAppScreenTabType.Account => const AccountScreen()
                 }
             )
         );
