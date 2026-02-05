@@ -288,7 +288,10 @@ class _PPGScreenWidgetState extends State<PPGScreenWidget> {
             graphData: _graphData,
             startTime: _sessionContext.startTime,
             ppgScreenSettings: _ppgScreenSettings,
-            currentHeartRate: _sessionContext.currentHeartRate);
+            currentHeartRate: _sessionContext.currentHeartRate,
+            minHeartRate: _sessionContext.minHeartRate,
+            maxHeartRate: _sessionContext.maxHeartRate,
+        );
     }
 
     @override
