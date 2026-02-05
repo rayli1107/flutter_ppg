@@ -1,30 +1,29 @@
-class PPGScreenSettings
+import 'package:flutter/foundation.dart';
+
+class PPGScreenSettings extends ChangeNotifier
 {
     bool _flashlight;
-    final void Function(bool) _onToggleFlashlight;
-
     int _length;
-    final void Function(int) _onLengthUpdate;
 
     bool get flashlight => _flashlight;
     set flashlight(bool value) {
-        _flashlight = value;
-        _onToggleFlashlight(value);
+        if (_flashlight != value) {
+            _flashlight = value;
+            notifyListeners();
+        }
     }
 
     int get length => _length;
     set length(int value) {
-        _length = value;
-        _onLengthUpdate(value);
+        if (_length != value) {
+            _length = value;
+            notifyListeners();
+        }
     }
 
     PPGScreenSettings({
-        required void Function(int) onLengthUpdate,
-        required void Function(bool) onToggleFlashlight,
-        int length = 60,
+        int length = 30,
         bool flashlight = false}) : 
-        _onLengthUpdate = onLengthUpdate,
-        _onToggleFlashlight = onToggleFlashlight,
         _flashlight = flashlight,
         _length = length;
 }

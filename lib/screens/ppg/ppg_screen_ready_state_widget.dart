@@ -21,19 +21,54 @@ class PPGScreenReadyStateWidget extends StatelessWidget {
 
     @override
     Widget build(BuildContext context) {
-        return Center(
-            child: Column(
-                spacing: 10,
-                children: [
-                    CameraPreviewWidget(
-                        cameraController: cameraController,
-                        brightnessDetectionModel: brightnessDetectionModel),
-                    Text('將手指覆蓋在手機鏡頭上'),
-                    PPGScreenSettingsWidget(
-                        config: ppgScreenSettings,
+        return Column(
+            children: [
+                Expanded(
+                    child: Stack(
+                        children: [
+                            // Camera preview as background
+                            Positioned.fill(
+                                child: CameraPreview(cameraController),
+                            ),
+                            // Dark overlay
+                            Positioned.fill(
+                                child: Container(
+                                    color: Colors.black.withValues(alpha: 0.4),
+                                ),
+                            ),
+                            // Circular progress indicator in center
+                            Center(
+                                child: CameraPreviewWidget(
+                                    cameraController: cameraController,
+                                    brightnessDetectionModel: brightnessDetectionModel,
+                                ),
+                            ),
+                        ],
                     ),
-                ],
-            )
+                ),
+                // Settings panel at bottom
+                Container(
+                    decoration: BoxDecoration(
+                        color: Colors.white,
+                        boxShadow: [
+                            BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.1),
+                                blurRadius: 8,
+                                offset: const Offset(0, -2),
+                            ),
+                        ],
+                    ),
+                    child: SafeArea(
+                        top: false,
+                        child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: PPGScreenSettingsWidget(
+                                config: ppgScreenSettings,
+                            ),
+                        ),
+                    ),
+                ),
+            ],
         );
     }
 }

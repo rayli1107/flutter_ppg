@@ -7,7 +7,7 @@ class FFT {
         List<double> data,
         double fps) {
         // Preprocess: bandpass filter and normalize
-        final signal = _bandpassFilter(data, fps);
+        final signal = bandpassFilter(data, fps);
 
         final fft = _computeFFT(signal);
         final n = fft.length;  // Use padded FFT length for frequency calculation
@@ -21,7 +21,7 @@ class FFT {
       
             if (freq >= 0.7 && freq <= 4.0) {
                 final power = fft[i].abs();
-                if (power > maxPower) {
+                if (power > maxPower) { 
                     maxPower = power;
                     dominantFreq = freq;
                 }
@@ -33,7 +33,7 @@ class FFT {
     }
 
     /// Bandpass filter (0.7-4 Hz = 42-240 BPM range)
-    static List<double> _bandpassFilter(List<double> signal, double fps) {
+    static List<double> bandpassFilter(List<double> signal, double fps) {
         // Simple moving average for detrending
         final detrended = _detrend(signal);
 

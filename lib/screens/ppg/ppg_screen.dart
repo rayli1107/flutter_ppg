@@ -230,6 +230,11 @@ class _PPGScreenWidgetState extends State<PPGScreenWidget> {
         }
     }
 
+    void _onSettingsChanged() {
+        _cameraController.setFlashMode(
+            _ppgScreenSettings.flashlight ? FlashMode.torch : FlashMode.off);
+    }
+
     @override
     void initState() {
         super.initState();
@@ -244,16 +249,8 @@ class _PPGScreenWidgetState extends State<PPGScreenWidget> {
 
         _state = _PPGScreenState.ready;
 
-        _ppgScreenSettings = PPGScreenSettings(
-            onLengthUpdate: (_) {
-                setState(() {});
-            },
-            onToggleFlashlight: (bool enable) {
-                _cameraController.setFlashMode(
-                    enable ? FlashMode.torch : FlashMode.off);
-                setState(() {});
-            }
-        );
+        _ppgScreenSettings = PPGScreenSettings();
+        _ppgScreenSettings.addListener(_onSettingsChanged);
 
         _cameraController = CameraController(
             widget.cameraDescription!,
@@ -275,6 +272,7 @@ class _PPGScreenWidgetState extends State<PPGScreenWidget> {
 
     @override
     void dispose() {
+        _ppgScreenSettings.removeListener(_onSettingsChanged);
         _cameraController.setFlashMode(FlashMode.off).then((_) {
             return _cameraController.stopImageStream();
         }).then((_) {
