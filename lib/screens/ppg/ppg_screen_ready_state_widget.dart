@@ -6,18 +6,10 @@ import 'package:flutter_ppg/models/brightness_detection_model.dart';
 import 'package:flutter_ppg/screens/ppg/camera_preview_widget.dart';
 import 'package:flutter_ppg/screens/ppg/ppg_settings.dart';
 import 'package:flutter_ppg/screens/ppg/ppg_settings_widget.dart';
+import 'package:provider/provider.dart';
 
 class PPGScreenReadyStateWidget extends StatelessWidget {
-    const PPGScreenReadyStateWidget({
-        super.key,
-        required this.cameraController,
-        required this.brightnessDetectionModel,
-        required this.ppgScreenSettings,
-    });
-
-    final CameraController cameraController;
-    final BrightnessDetectionModel brightnessDetectionModel;
-    final PPGScreenSettings ppgScreenSettings;
+    const PPGScreenReadyStateWidget({super.key});
 
     @override
     Widget build(BuildContext context) {
@@ -28,7 +20,11 @@ class PPGScreenReadyStateWidget extends StatelessWidget {
                         children: [
                             // Camera preview as background
                             Positioned.fill(
-                                child: CameraPreview(cameraController),
+                                child: Consumer<CameraController>(
+                                    builder: (context, controller, child) {
+                                        return CameraPreview(controller);
+                                    },
+                                ),
                             ),
                             // Dark overlay
                             Positioned.fill(
@@ -38,9 +34,12 @@ class PPGScreenReadyStateWidget extends StatelessWidget {
                             ),
                             // Circular progress indicator in center
                             Center(
-                                child: CameraPreviewWidget(
-                                    cameraController: cameraController,
-                                    brightnessDetectionModel: brightnessDetectionModel,
+                                child: Consumer<BrightnessDetectionModel>(
+                                    builder: (context, model, child) {
+                                        return CameraPreviewWidget(
+                                            brightnessDetectionModel: model,
+                                        );
+                                    },
                                 ),
                             ),
                         ],
@@ -62,8 +61,10 @@ class PPGScreenReadyStateWidget extends StatelessWidget {
                         top: false,
                         child: Padding(
                             padding: const EdgeInsets.all(16),
-                            child: PPGScreenSettingsWidget(
-                                config: ppgScreenSettings,
+                            child: Consumer<PPGScreenSettings>(
+                                builder: (context, config, child) {
+                                    return PPGScreenSettingsWidget(config: config);
+                                },
                             ),
                         ),
                     ),

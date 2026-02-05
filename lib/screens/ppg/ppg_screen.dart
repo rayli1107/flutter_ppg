@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:camera/camera.dart';
+import 'package:provider/provider.dart';
 
 import 'package:flutter_ppg/models/brightness_detection_model.dart';
 import 'package:flutter_ppg/models/graph_data.dart';
@@ -292,23 +293,28 @@ class _PPGScreenWidgetState extends State<PPGScreenWidget> {
 
     @override
     Widget build(BuildContext context) {
-        return Scaffold(
-            appBar: AppBar(
-                centerTitle: true,
-                title: const Text('心跳偵測')),
-            body: switch (_state) {
-                _PPGScreenState.initializing => _PPGScreenInitializingWidget(),
-                _PPGScreenState.ready => PPGScreenReadyStateWidget(
-                    cameraController: _cameraController,
-                    brightnessDetectionModel: _brightnessDetectionModel,
-                    ppgScreenSettings: _ppgScreenSettings,
+        return MultiProvider(
+            providers: [
+                ChangeNotifierProvider.value(value: _cameraController),
+                ChangeNotifierProvider.value(value: _ppgScreenSettings),
+                ChangeNotifierProvider.value(value: _brightnessDetectionModel),
+            ],
+            child: Scaffold(
+                appBar: AppBar(
+                    centerTitle: true,
+                    title: const Text('心跳偵測')
                 ),
-                _PPGScreenState.sampling => _buildSamplingStateWidget(),
-                _PPGScreenState.updatingHeartRate => _buildSamplingStateWidget(),
-                _PPGScreenState.finalizingHeartRate => _buildSamplingStateWidget(),
-                _PPGScreenState.error => _PPGScreenErrorWidget(error: _error),
-                _PPGScreenState.done => PPGScreenSummaryStateWidget(
-                    session: _finalSession!),
-            });
+                body: switch (_state) {
+                    _PPGScreenState.initializing => _PPGScreenInitializingWidget(),
+                    _PPGScreenState.ready => PPGScreenReadyStateWidget(),
+                    _PPGScreenState.sampling => _buildSamplingStateWidget(),
+                    _PPGScreenState.updatingHeartRate => _buildSamplingStateWidget(),
+                    _PPGScreenState.finalizingHeartRate => _buildSamplingStateWidget(),
+                    _PPGScreenState.error => _PPGScreenErrorWidget(error: _error),
+                    _PPGScreenState.done => PPGScreenSummaryStateWidget(
+                        session: _finalSession!),
+                }
+            )
+        );
     }
 }

@@ -6,13 +6,8 @@ import 'package:camera/camera.dart';
 import 'package:flutter_ppg/models/brightness_detection_model.dart';
 
 class CameraPreviewWidget extends StatelessWidget {
-    const CameraPreviewWidget({
-        super.key,
-        required this.cameraController,
-        required this.brightnessDetectionModel,
-    });
+    const CameraPreviewWidget({super.key, required this.brightnessDetectionModel});
 
-    final CameraController cameraController;
     final BrightnessDetectionModel brightnessDetectionModel;
 
     @override
