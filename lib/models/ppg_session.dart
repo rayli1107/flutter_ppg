@@ -1,6 +1,8 @@
 import 'dart:collection';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
+
 class PPGSessionEntry {
     final double _timeSeconds;
     final double _value;
@@ -30,14 +32,14 @@ class PPGSession {
         required this.minHeartRate}) {}    
 }
 
-class PPGSessionContext {
+class PPGSessionContext extends ChangeNotifier {
     final int skippingFrames;
     final List<PPGSessionEntry> _entries;
     
     late DateTime _startTime;
     late DateTime lastHeartRateUpdateTime;
-    late double _minHeartRate;
-    late double _maxHeartRate;
+    late double? _minHeartRate;
+    late double? _maxHeartRate;
     double? averageHeartRate;
     double? _currentHeartRate;
     late int _skippedFrames; 
@@ -51,8 +53,8 @@ class PPGSessionContext {
 
     UnmodifiableListView<PPGSessionEntry> get entries => UnmodifiableListView(_entries);
     DateTime get startTime => _startTime;
-    double get minHeartRate => _minHeartRate;
-    double get maxHeartRate => _maxHeartRate;
+    double? get minHeartRate => _minHeartRate;
+    double? get maxHeartRate => _maxHeartRate;
 
     (List<double> data, double duration) getEntries(int? maxFrames) {
         int startIndex = maxFrames == null ? 0 : max(
@@ -79,17 +81,21 @@ class PPGSessionContext {
         _entries.clear();
         _startTime = timeStart;
         lastHeartRateUpdateTime = timeStart;
-        _minHeartRate = double.maxFinite;
-        _maxHeartRate = 0;
+        _minHeartRate = null;
+        _maxHeartRate = null;
         averageHeartRate = null;
         _currentHeartRate = null;
         _skippedFrames = 0;
+
+        notifyListeners();
     }
     
     double? get currentHeartRate => _currentHeartRate;
     set currentHeartRate(double value) {
         _currentHeartRate = value;
-        _minHeartRate = min(_minHeartRate, value);
-        _maxHeartRate = max(_maxHeartRate, value);
+        _minHeartRate = _minHeartRate == null ? value : min(_minHeartRate!, value);
+        _maxHeartRate = _maxHeartRate == null ? value : max(_maxHeartRate!, value);
+
+        notifyListeners();
     }
 }

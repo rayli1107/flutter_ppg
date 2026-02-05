@@ -28,7 +28,8 @@ enum _PPGScreenState {
 
 class PPGScreenConfig {
     const PPGScreenConfig({
-        this.windowTimeframeSeconds = 10,
+        this.windowTimeframeMinSeconds = 5,
+        this.windowTimeframeMaxSeconds = 10,
         this.skippingFrames = 10,
         this.cameraFps = 30,
         this.updateIntervalSeconds = 1,
@@ -37,7 +38,8 @@ class PPGScreenConfig {
     }) : minUpdateFrames = minUpdateWindowSeconds * cameraFps,
          maxUpdateFrames = maxUpdateWindowSeconds * cameraFps;
 
-    final double windowTimeframeSeconds;
+    final double windowTimeframeMinSeconds;
+    final double windowTimeframeMaxSeconds;
     final int cameraFps;
     final int skippingFrames;
     final int minUpdateFrames;
@@ -166,9 +168,6 @@ class _PPGScreenWidgetState extends State<PPGScreenWidget> {
                     _processResult(0, result);
                     setState(() {_state = _PPGScreenState.sampling;});
                 }
-                else {
-                    setState(() {});
-                }
                 break;
 
             case _PPGScreenState.sampling:
@@ -186,8 +185,8 @@ class _PPGScreenWidgetState extends State<PPGScreenWidget> {
                                 timestamp: _sessionContext.startTime,
                                 data: _sessionContext.entries.map((e) => e.value).toList(),
                                 averageHeartRate: heartRate,
-                                maxHeartRate: _sessionContext.maxHeartRate,
-                                minHeartRate: _sessionContext.minHeartRate);
+                                maxHeartRate: _sessionContext.maxHeartRate!,
+                                minHeartRate: _sessionContext.minHeartRate!);
 
                             PPGSessionManager.instance.addSession(_finalSession!).then(
                                 (_) { setState(() {_state = _PPGScreenState.done;}); });
@@ -206,8 +205,6 @@ class _PPGScreenWidgetState extends State<PPGScreenWidget> {
                                     setState(() {_state = _PPGScreenState.sampling;});
                                 }
                             });
-                        } else {
-                            setState(() {});
                         }
                     }
                 } else {
@@ -221,7 +218,6 @@ class _PPGScreenWidgetState extends State<PPGScreenWidget> {
                     var timeDiff = timeNow.difference(_sessionContext.startTime);
                     double timeSeconds = timeDiff.inMilliseconds / 1000;
                     _processResult(timeSeconds, result);
-                    setState(() {});
                 } else {
                     setState(() {_state = _PPGScreenState.ready;});
                 }
@@ -261,7 +257,11 @@ class _PPGScreenWidgetState extends State<PPGScreenWidget> {
         _sessionContext = PPGSessionContext(
             startTime: DateTime.now(),
             skippingFrames: widget.ppgScreenConfig.skippingFrames);
-        _graphData = GraphData(windowSize: widget.ppgScreenConfig.windowTimeframeSeconds);
+        _graphData = GraphData(
+            minWindowSizeSeconds: widget.ppgScreenConfig.windowTimeframeMinSeconds,
+            maxWindowSizeSeconds: widget.ppgScreenConfig.windowTimeframeMaxSeconds,
+            skipFirst: widget.ppgScreenConfig.cameraFps * 1,
+            selectEveryN: 5);
         _brightnessDetectionModel = BrightnessDetectionModel(
             widget.brightnessDetectionConfig);
 
@@ -285,12 +285,9 @@ class _PPGScreenWidgetState extends State<PPGScreenWidget> {
 
     Widget _buildSamplingStateWidget() {
         return PPGScreenSamplingStateWidget(
-            graphData: _graphData,
+            cameraFps: widget.ppgScreenConfig.cameraFps,
             startTime: _sessionContext.startTime,
             ppgScreenSettings: _ppgScreenSettings,
-            currentHeartRate: _sessionContext.currentHeartRate,
-            minHeartRate: _sessionContext.minHeartRate,
-            maxHeartRate: _sessionContext.maxHeartRate,
         );
     }
 
@@ -300,6 +297,8 @@ class _PPGScreenWidgetState extends State<PPGScreenWidget> {
             providers: [
                 ChangeNotifierProvider.value(value: _cameraController),
                 ChangeNotifierProvider.value(value: _ppgScreenSettings),
+                ChangeNotifierProvider.value(value: _graphData),
+                ChangeNotifierProvider.value(value: _sessionContext),
                 ChangeNotifierProvider.value(value: _brightnessDetectionModel),
             ],
             child: Scaffold(
