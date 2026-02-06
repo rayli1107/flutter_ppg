@@ -9,14 +9,7 @@ import 'package:flutter_ppg/models/brightness_detection_model.dart';
 import 'package:flutter_ppg/screens/account/account.dart';
 import 'package:flutter_ppg/screens/ppg/ppg_screen.dart';
 import 'package:flutter_ppg/services/ppg_session_manager.dart';
-
-
-enum MainAppScreenTabType {
-    Home,
-    HeartRate,
-    Exercise,
-    Account
-}
+import 'package:flutter_ppg/tab_types.dart';
 
 Future<void> main() async {
     // Ensure that plugin services are initialized so that `availableCameras()`
@@ -62,6 +55,10 @@ class MainAppScreen extends StatefulWidget {
     final CameraDescription? cameraDescription;
     final BrightnessDetectionConfig brightnessDetectionConfig;
 
+    static int getIndexByType(MainAppScreenTabType type) {
+        return MainAppScreen.tabs.indexOf(type);
+    }
+
     @override
     State<MainAppScreen> createState() => _MainAppScreenState();
 }
@@ -70,7 +67,19 @@ class _MainAppScreenState extends State<MainAppScreen> {
 
     int _tabIndex = 0;
 
+    void _onRoute(MainAppScreenTabType type) {
+        int index = MainAppScreen.getIndexByType(type);
+        if (index < 0) {
+            return;
+        }
+
+        _onDestinationSelected(index);
+    }
+
     void _onDestinationSelected(int tabIndex) {
+        if (_tabIndex == tabIndex) {
+            return;
+        }
         setState(() {_tabIndex = tabIndex; });
     }
 
@@ -114,7 +123,8 @@ class _MainAppScreenState extends State<MainAppScreen> {
             child: Scaffold(
                 bottomNavigationBar: _buildNavgationBar(),
                 body: switch (MainAppScreen.tabs[_tabIndex]) {
-                    MainAppScreenTabType.Home => HomeScreen(),
+                    MainAppScreenTabType.Home => HomeScreen(
+                        onRoute: _onRoute),
                     MainAppScreenTabType.HeartRate => PPGScreenWidget(
                         cameraDescription: widget.cameraDescription),
                     MainAppScreenTabType.Exercise => PPGScreenWidget(
