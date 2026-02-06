@@ -153,7 +153,7 @@ class _PPGScreenWidgetState extends State<PPGScreenWidget> {
         PPGSessionEntry? entry =
             _sessionContext.addEntry(timeSeconds, result.brightness);
         if (entry != null) {
-            _graphData.addPoint(timeSeconds, entry.value);
+            _graphData.addPoint(timeSeconds, entry.deviation);
         }
     }
 

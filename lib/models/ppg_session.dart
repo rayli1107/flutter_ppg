@@ -6,15 +6,19 @@ import 'package:flutter/foundation.dart';
 class PPGSessionEntry {
     final double _timeSeconds;
     final double _value;
+    final double _deviation;
 
     PPGSessionEntry({
         required double timeSeconds,
-        required double value}) :
+        required double value,
+        required double deviation}) :
         _timeSeconds = timeSeconds,
-        _value = value {}
+        _value = value,
+        _deviation = deviation;
 
     double get timeSeconds => _timeSeconds;
     double get value => _value;
+    double get deviation => _deviation;
 }
 
 class PPGSession {
@@ -43,6 +47,8 @@ class PPGSessionContext extends ChangeNotifier {
     double? averageHeartRate;
     double? _currentHeartRate;
     late int _skippedFrames; 
+    late double _currentMean;
+    late double _currentM2;
 
     PPGSessionContext({
         required DateTime startTime,
@@ -71,8 +77,17 @@ class PPGSessionContext extends ChangeNotifier {
             return null;
         }
 
+        int count = _entries.length + 1;
+        double delta = value - _currentMean;
+        _currentMean += delta / count;
+        double delta2 = value - _currentMean;
+        _currentM2 += delta * delta2;
+        double variance = _currentM2 / count; 
+        double stdDev = sqrt(variance);
+        print("mean: $_currentMean, delta: $delta, delta2: $delta2, m2: $_currentM2, variance: $variance, stdDev $stdDev");
         PPGSessionEntry entry = PPGSessionEntry(
-            timeSeconds: timeSeconds, value: value);
+            timeSeconds: timeSeconds, value: value, deviation: delta / stdDev);
+
         _entries.add(entry);
         return entry;
     }
@@ -86,7 +101,8 @@ class PPGSessionContext extends ChangeNotifier {
         averageHeartRate = null;
         _currentHeartRate = null;
         _skippedFrames = 0;
-
+        _currentMean = 0;
+        _currentM2 = 0;
         notifyListeners();
     }
     

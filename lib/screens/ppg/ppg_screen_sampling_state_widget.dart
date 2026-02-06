@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -7,7 +6,6 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_ppg/models/graph_data.dart';
 import 'package:flutter_ppg/models/ppg_session.dart';
 import 'package:flutter_ppg/screens/ppg/ppg_settings.dart';
-import 'package:flutter_ppg/utils/fft.dart';
 import 'package:provider/provider.dart';
 
 class CountdownTimerWidget extends StatefulWidget {
@@ -107,11 +105,6 @@ class PPGScreenSamplingStateWidget extends StatelessWidget {
 
     @override
     Widget build(BuildContext context) {
-        var timeDiff = DateTime.now().difference(startTime);
-        double timeSeconds = timeDiff.inMilliseconds / 1000;
-        double progress = timeSeconds / ppgScreenSettings.length;
-        int remainingSeconds = (ppgScreenSettings.length - timeSeconds).ceil();
-
         return Column(
             children: [
                 // Chart at top
@@ -192,6 +185,7 @@ class PPGScreenSamplingStateWidget extends StatelessWidget {
         }
 
         List<FlSpot> points = graphData.getPoints();
+        /*
         List<double> data = points.map((e) => e.y).toList();
         data = FFT.bandpassFilter(data, cameraFps / graphData.selectEveryN);
         double minY = data.reduce(min);
@@ -206,16 +200,17 @@ class PPGScreenSamplingStateWidget extends StatelessWidget {
         for (int i = 0; i < points.length; ++i) {
             processedPoints.add(FlSpot(points[i].x, data[i]));
         }
+        */
         return LineChart(
             LineChartData(
                 minX: graphData.minX,
                 maxX: graphData.maxX,
-                minY: minY,
-                maxY: maxY,
+                minY: -2,
+                maxY: 2,
                 gridData: FlGridData(
                     show: true,
                     drawVerticalLine: false,
-                    horizontalInterval: (maxY - minY) / 4,
+                    horizontalInterval: 0.2,
                     getDrawingHorizontalLine: (value) {
                         return FlLine(
                             color: Colors.grey.shade300,
@@ -233,7 +228,7 @@ class PPGScreenSamplingStateWidget extends StatelessWidget {
                 ),
                 lineBarsData: [
                     LineChartBarData(
-                        spots: processedPoints,
+                        spots: points,
                         isCurved: true,
                         color: const Color(0xFFE53935),
                         barWidth: 2,
